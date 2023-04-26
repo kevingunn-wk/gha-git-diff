@@ -1,0 +1,54 @@
+name: 'GitHub Actions git diff'
+description: 'Get diff between commits'
+inputs:
+  commit1:
+    description: 'Initial commit or ref to diff against'
+    required: false
+    default: 'origin/master'
+  commit2:
+    description: 'Second commit or ref to diff (the changes that have been made since commit1)'
+    required: false
+    default: 'HEAD'
+
+outputs:
+  file_changes:
+    description: 'JSON list of files with changes (ACMRT)'
+    value: ${{ steps.changes-files.outputs.changes_files }}
+  file_deletes:
+    description: 'JSON list of files that have been deleted'
+    value: ${{ steps.deletes-files.outputs.deletes_files }}
+  dir_changes:
+    description: 'JSON list of directories with changes (ACMRT)'
+    value: ${{ steps.changes-dirs.outputs.changes_dirs }}
+  dir_deletes:
+    description: 'JSON list of directories that have been deleted'
+    value: ${{ steps.deletes-dirs.outputs.deletes_dirs }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: Get diff changes (ACMRT) - Dir only
+      shell: sh
+      id: changes-files
+      run: |
+        echo "changes=$(git diff --name-only --diff-filter=ACMRT origin/master..${{ github.sha }} | grep '\.tf' | xargs dirname | sort | uniq | jq -cnR '[inputs | select(length>0)]')" >> "$GITHUB_OUTPUT"
+    - name: Get diff deletes (D) - Dir only
+      shell: sh
+      id: deletes-files
+      run: |
+        echo "deletes=$(git diff --name-only --diff-filter=D origin/master..${{ github.sha }} | grep '\.tf' | xargs dirname | sort | uniq | jq -cnR '[inputs | select(length>0)]')" >> "$GITHUB_OUTPUT"
+    - name: Get diff changes (ACMRT) - full path
+      shell: sh
+      id: changes-dirs
+      run: |
+        echo "changes=$(git diff --name-only --diff-filter=ACMRT origin/master..${{ github.sha }} | grep '\.tf' | sort | uniq | jq -cnR '[inputs | select(length>0)]')" >> "$GITHUB_OUTPUT"
+    - name: Get diff deletes (D) - full path
+      shell: sh
+      id: deletes-dirs
+      run: |
+        echo "deletes=$(git diff --name-only --diff-filter=D origin/master..${{ github.sha }} | grep '\.tf' | sort | uniq | jq -cnR '[inputs | select(length>0)]')" >> "$GITHUB_OUTPUT"
+
